@@ -2,6 +2,7 @@ library(dplyr)
 library(tidyr)
 library(readr)
 library(RPostgres)
+library(stringr)
 
 # imports, clean up, and save to database the data from
 # http://www.stats.govt.nz/tools_and_services/microdata-access/nzis-2011-cart-surf.aspx
@@ -86,7 +87,9 @@ d_region <- data_frame(region_id =1:12,
 
 
 #====================load up to database=====================
-con <- dbConnect(RPostgres::Postgres(), dbname = "nzis2011")
+# This will write to the database in the default (`public`) schema so we need to
+# move it over afterwards
+con <- dbConnect(RPostgres::Postgres(), dbname = "survey_microdata")
 
 
 dbSendQuery(con, "DROP TABLE IF EXISTS f_mainheader")
@@ -113,32 +116,12 @@ dbWriteTable(con, "d_occupation", d_occupation, row.names = FALSE)
 dbWriteTable(con, "d_qualification", d_qualification, row.names = FALSE)
 dbWriteTable(con, "d_region", d_region, row.names = FALSE)
 
-#----------------indexing----------------------
+#---------------move from public to nzis2011 schema-----------
+sql <- paste(readLines("nzis2011/modify-nzis.sql"), collapse = "\n")
 
-dbSendQuery(con, "ALTER TABLE f_mainheader ADD PRIMARY KEY(survey_id)")
-
-dbSendQuery(con, "ALTER TABLE d_sex ADD PRIMARY KEY(sex_id)")
-dbSendQuery(con, "ALTER TABLE d_agegrp ADD PRIMARY KEY(agegrp_id)")
-dbSendQuery(con, "ALTER TABLE d_ethnicity ADD PRIMARY KEY(ethnicity_id)")
-dbSendQuery(con, "ALTER TABLE d_occupation ADD PRIMARY KEY(occupation_id)")
-dbSendQuery(con, "ALTER TABLE d_qualification ADD PRIMARY KEY(qualification_id)")
-dbSendQuery(con, "ALTER TABLE d_region ADD PRIMARY KEY(region_id)")
-
-#---------------create an analysis-ready view-------------------
-
-dbSendQuery(con, "drop view if exists vw_mainheader")
-
-sql1 <-
-  "CREATE VIEW vw_mainheader AS 
-   SELECT survey_id, sex, agegrp, occupation, qualification, region, hours, income 
-   FROM
-      f_mainheader a   JOIN
-      d_sex b          on a.sex_id = b.sex_id JOIN
-      d_agegrp c       on a.agegrp_id = c.agegrp_id JOIN
-      d_occupation e   on a.occupation_id = e.occupation_id JOIN
-      d_qualification f on a.qualification_id = f.qualification_id JOIN
-      d_region g       on a.region_id = g.region_id"
-
-dbSendQuery(con, sql1)
+# break all those commands into one command per element of a vector:
+sql_v <- stringr::str_split(sql, ";", simplify = TRUE)
+sql_v[[1]]
+lapply(sql_v, function(x){dbSendQuery(con, x)})
 
 dbDisconnect(con)
