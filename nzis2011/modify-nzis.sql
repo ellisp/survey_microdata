@@ -16,7 +16,7 @@ ALTER TABLE public.d_ethnicity      SET SCHEMA nzis2011;
 ALTER TABLE public.d_occupation     SET SCHEMA nzis2011;
 ALTER TABLE public.d_qualification  SET SCHEMA nzis2011;
 ALTER TABLE public.d_region         SET SCHEMA nzis2011;
-
+ALTER TABLE public.f_ethnicity      SET SCHEMA nzis2011;
 
 ----------------indexing----------------------
 ALTER TABLE nzis2011.f_mainheader     ADD PRIMARY KEY(survey_id);
